@@ -8,6 +8,7 @@ const router = express.Router()
 router.get('/history', authMiddleware, async (req, res) => {
   try {
     const userId = req.user._id
+    console.log('Fetching call history for user:', userId)
     const calls = await Call.find({
       $or: [{ caller: userId }, { receiver: userId }],
     }).sort({ startedAt: -1 })

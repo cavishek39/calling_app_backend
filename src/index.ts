@@ -1,5 +1,7 @@
 import rateLimit from 'express-rate-limit'
+import dotenv from 'dotenv'
 
+import authRoutes from './routes/auth'
 import callRoutes from './routes/call'
 import Call from './models/Call'
 import chatRoutes from './routes/chat'
@@ -9,20 +11,12 @@ import { Server } from 'socket.io'
 import SocketsEvents from './utils/socket-events'
 import cors from 'cors'
 import helmet from 'helmet'
-import dotenv from 'dotenv'
-import authRoutes from './routes/auth'
 import Message from './models/Message'
 
-import mongoose from 'mongoose'
-import { TMessage } from './types/message'
 import { isUserBusy } from './utils/helpers/isUserBusy'
 import User from './models/User'
 import { sendExpoNotification } from './utils/sendExpoNotification'
-// Connect to MongoDB
-mongoose
-  .connect(process.env.MONGO_URI || 'mongodb://localhost:27017/call-app')
-  .then(() => console.log('MongoDB connected'))
-  .catch((err) => console.error('MongoDB connection error:', err))
+import { HealthChecker } from './utils/healthChecker'
 
 dotenv.config()
 
@@ -58,9 +52,41 @@ const io = new Server(server, {
 })
 
 // Health route
-app.get('/health', (req, res) => {
-  res.json({ status: 'OK' })
+app.get('/health', async (req, res) => {
+  const authOk = await HealthChecker.checkAuthService()
+  const dbOk = await HealthChecker.checkDbConnection()
+  const appOk = await HealthChecker.checkAppCode()
+  const allOk = authOk && dbOk && appOk
+  res.json({
+    status: allOk ? 'OK' : 'FAIL',
+    auth: authOk,
+    db: dbOk,
+    app: appOk,
+  })
 })
+
+// Only start server if all health checks pass
+const validateCriticalServices = async () => {
+  const authOk = await HealthChecker.checkAuthService()
+  const dbOk = await HealthChecker.checkDbConnection()
+  const appOk = await HealthChecker.checkAppCode()
+  console.log('Health check results:', {
+    auth: authOk,
+    db: dbOk,
+    app: appOk,
+  })
+  if (authOk && dbOk && appOk) {
+    server.listen(PORT, () => {
+      console.log(`Server is running on http://localhost:${PORT}`)
+    })
+  } else {
+    console.error('Health check failed. Server not started.')
+    if (!authOk) console.error('Auth service health check failed.')
+    if (!dbOk) console.error('Database connection health check failed.')
+    if (!appOk) console.error('Application code health check failed.')
+    process.exit(1)
+  }
+}
 
 // Root route
 app.get('/', (req, res) => {
@@ -68,7 +94,7 @@ app.get('/', (req, res) => {
 })
 
 // Auth routes
-app.use('/api/auth', authLimiter)
+app.use('/api/auth', authRoutes)
 
 // Chat routes
 app.use('/api/chat', chatRoutes)
@@ -390,16 +416,9 @@ io.on('connection', (socket) => {
       offer: data.offer,
     })
   })
-
-  // Handle user disconnecting
-  socket.on('disconnect', () => {
-    console.log('user disconnected')
-  })
 })
 
-server.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`)
-})
+await validateCriticalServices()
 
 // Graceful shutdown
 process.on('SIGTERM', () => {

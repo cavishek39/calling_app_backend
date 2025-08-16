@@ -17,6 +17,7 @@ router.get('/history/:userId', authMiddleware, async (req, res) => {
     }).sort({ createdAt: -1 })
     res.json(messages)
   } catch (err) {
+    console.error('Error fetching chat history:', err)
     res.status(500).json({ error: 'Server error.' })
   }
 })
