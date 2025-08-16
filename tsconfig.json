@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "rootDirs": ["src"],
+
+    "outDir": "dist",
+
+    "lib": ["es2020", "DOM"],
+
+    "target": "es2020",
+    "module": "esnext",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "types": ["node"],
+    "incremental": true,
+
+    "sourceMap": true,
+    "inlineSources": true,
+
+    // "strict": true,
+    "tsBuildInfoFile": "./.tsbuildinfo",
+    // Set `sourceRoot` to  "/" to strip the build path prefix
+    // from generated source code references.
+    // This improves issue grouping in Sentry.
+    "sourceRoot": "/"
+  },
+  "exclude": ["node_modules", "dist"]
+}
