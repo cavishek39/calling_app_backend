@@ -1,7 +1,9 @@
 import express from 'express'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
+import crypto from 'crypto'
 import User from '../models/User'
+import RefreshToken from '../models/RefreshToken'
 import authMiddleware from '../middleware/auth'
 import { body, validationResult } from 'express-validator'
 
@@ -68,10 +70,19 @@ router.post(
       const token = jwt.sign(
         { id: user._id },
         process.env.JWT_SECRET || 'secret',
-        { expiresIn: '7d' }
+        { expiresIn: '15m' } // Shorter expiry for access token
       )
+      // Generate refresh token
+      const refreshTokenValue = crypto.randomBytes(40).toString('hex')
+      const refreshToken = new RefreshToken({
+        user: user._id,
+        token: refreshTokenValue,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      })
+      await refreshToken.save()
       res.json({
         token,
+        refreshToken: refreshTokenValue,
         user: { id: user._id, username: user.username, email: user.email },
       })
     } catch (err) {
@@ -79,6 +90,35 @@ router.post(
     }
   }
 )
+
+// Refresh token endpoint
+router.post('/refresh-token', async (req, res) => {
+  const { refreshToken } = req.body
+  if (!refreshToken) {
+    return res.status(400).json({ error: 'Refresh token required.' })
+  }
+  try {
+    const stored = await RefreshToken.findOne({ token: refreshToken })
+    if (!stored || stored.expiresAt < new Date()) {
+      return res
+        .status(401)
+        .json({ error: 'Invalid or expired refresh token.' })
+    }
+    const user = await User.findById(stored.user)
+    if (!user) {
+      return res.status(401).json({ error: 'User not found.' })
+    }
+    // Generate new access token
+    const newToken = jwt.sign(
+      { id: user._id },
+      process.env.JWT_SECRET || 'secret',
+      { expiresIn: '15m' }
+    )
+    res.json({ token: newToken })
+  } catch (err) {
+    res.status(500).json({ error: 'Server error.' })
+  }
+})
 
 // Save or update Expo push token
 router.post('/expo-push-token', authMiddleware, async (req, res) => {

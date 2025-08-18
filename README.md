@@ -15,6 +15,7 @@ A robust Node.js + Express backend for a real-time calling and chat app (audio/v
 - Call and chat history endpoints
 - Security: helmet, CORS, rate limiting, input validation, user status checks
 - Graceful shutdown, error handling
+- Refresh token support for access token renewal
 
 ---
 
@@ -69,6 +70,7 @@ src/
 - `POST /api/auth/register` — Register user
 - `POST /api/auth/login` — Login user
 - `POST /api/auth/expo-push-token` — Save Expo push token
+- `POST /api/auth/refresh-token` — Get new access token using refresh token
 
 ### Chat
 
@@ -116,6 +118,7 @@ src/
 - Input validation/sanitization (express-validator)
 - User status checks (active/banned/deleted)
 - Passwords hashed with bcryptjs
+- Refresh tokens stored securely in database
 
 ---
 
@@ -132,6 +135,7 @@ src/
 - Use Postman or curl for API testing
 - Use Expo Go for push notification testing
 - Socket.io events can be tested with frontend or socket.io-client
+- Test refresh token flow: login to get refresh token, use `/api/auth/refresh-token` to get new access token
 
 ---
 
